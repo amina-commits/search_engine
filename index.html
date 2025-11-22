@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Steam-like Game Search</title>
+<style>
+:root{
+  --bg:#0f1720; --panel:#12232d; --muted:#98a6b3; --accent:#66c0f4; --card:#152d3a;
+}
+body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; background:var(--bg); color:#e6f4ff; }
+
+/* header */
+.header{ height:68px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:linear-gradient(#0b1116,#071016); border-bottom:1px solid rgba(255,255,255,0.03); }
+.brand{ display:flex; align-items:center; gap:12px; }
+.logo{ width:36px; height:36px; border-radius:6px; background:url('/mnt/data/afc20e78-0e20-432c-9fc7-91a6691234d1.png') center/cover no-repeat; }
+.title{ color:var(--accent); font-weight:700; font-size:18px; }
+.nav{ display:flex; gap:10px; align-items:center; }
+.nav button{ background:transparent; border:none; color:var(--muted); padding:8px 10px; cursor:pointer; font-weight:600; }
+.nav button.active{ color:#fff; border-bottom:2px solid var(--accent); padding-bottom:6px; }
+
+/* container */
+.container{ max-width:1180px; margin:18px auto; padding:0 16px; }
+
+/* sections */
+.section{ margin-bottom:18px; }
+.section h2{ margin:0 0 10px; color:#fff; font-size:16px; }
+.row{ display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
+.card{ min-width:200px; width:200px; background:var(--card); border-radius:6px; cursor:pointer; overflow:hidden; box-shadow:0 6px 18px rgba(0,0,0,0.45); transition:transform .12s; }
+.card img{ width:100%; height:110px; object-fit:cover; display:block; }
+.card .meta{ padding:10px; }
+.card .meta h3{ margin:0; font-size:14px; color:#fff }
+.card .meta p{ margin:6px 0 0; color:var(--muted); font-size:13px }
+
+/* upload */
+.upload-panel{ display:flex; gap:12px; align-items:center; background:var(--panel); padding:12px; border-radius:6px; }
+.small{ color:var(--muted); font-size:13px; }
+
+/* page system */
+.page { display:none; }
+.page.active { display:block; }
+
+/* search/results */
+.controls{ display:flex; gap:8px; align-items:center; }
+.controls select, .controls input{ padding:8px; border-radius:4px; border:1px solid rgba(255,255,255,0.04); background:#0f2a3a; color:#dff3ff; }
+.results-list{ margin-top:12px; display:flex; flex-direction:column; gap:12px; }
+.game-result{ display:flex; gap:12px; padding:12px; background:var(--panel); border-radius:6px; align-items:flex-start; cursor:pointer; transition:transform .12s,box-shadow .12s; }
+.game-result:hover{ transform:scale(1.02); box-shadow:0 14px 30px rgba(0,0,0,0.6); }
+.game-result .thumb{ width:220px; height:120px; flex-shrink:0; overflow:hidden; border-radius:4px; }
+.game-result img{ width:100%; height:100%; object-fit:cover; }
+
+/* pagination */
+.pagination{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.pagination button{ padding:8px 10px; border-radius:6px; background:#0f2a3a; border:1px solid rgba(255,255,255,0.03); color:#dff3ff; cursor:pointer; }
+.pagination button.active{ background:var(--accent); color:#08131a; font-weight:700; }
+
+/* responsive */
+@media(max-width:900px){ .nav{ display:none } .controls { flex-wrap:wrap } .game-result { flex-direction:column } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="logo" title="logo"></div>
+    <div><div class="title">Steam Search</div></div>
+  </div>
+
+  <div class="nav" id="nav">
+    <button class="nav-btn active" data-page="home" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" data-page="upload" onclick="showPage('upload')">Upload File</button>
+    <button class="nav-btn" data-page="free" onclick="showPage('free')">Free Games</button>
+    <button class="nav-btn" data-page="search" onclick="showPage('search')">Search</button>
+    <button class="nav-btn" data-page="about" onclick="showPage('about')">About</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- HOME -->
+  <div id="page-home" class="page active">
+    <div id="home-empty" style="text-align:center;margin:60px 0;">
+      <h2 style="margin:0 0 8px">WELCOME</h2>
+      <p class="small">Upload files on Upload page to populate home sections.</p>
+    </div>
+
+    <div id="home-sections" style="display:none;">
+      <div class="section"><h2>Popular</h2><div id="popular-row" class="row"></div></div>
+      <div class="section"><h2>Free Games</h2><div id="free-row" class="row"></div></div>
+      <div class="section"><h2>Top Metacritic</h2><div id="meta-row" class="row"></div></div>
+      <div class="section" id="sports-section" style="display:none"><h2>Sports</h2><div id="sports-row" class="row"></div></div>
+      <div class="section" id="horror-section" style="display:none"><h2>Horror</h2><div id="horror-row" class="row"></div></div>
+      <div class="section" id="simulation-section" style="display:none"><h2>Simulation</h2><div id="simulation-row" class="row"></div></div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="page-upload" class="page">
+    <div class="upload-panel">
+      <input id="fileInput" type="file" multiple />
+      <button onclick="handleCSVUpload()">Upload file(s)</button>
+      <div id="upload-info" class="small">No file selected</div>
+    </div>
+    <div style="margin-top:12px" class="small">
+      Upload CSV/JSON/TXT. Required columns: appid, name, short_description, header_image, metacritic_score, recommendations_total, is_free
+    </div>
+  </div>
+
+  <!-- FREE -->
+  <div id="page-free" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Free Games</h3>
+      <div class="controls">
+        <select id="sortFree" onchange="renderFreeGames(1)">
+          <option value="recommendations">Sort by Recommendations</option>
+          <option value="metacritic">Sort by Metacritic</option>
+          <option value="alpha">Alphabetical</option>
+        </select>
+      </div>
+    </div>
+    <div id="free-results" class="results-list" style="margin-top:12px"></div>
+    <div id="free-pagination" class="pagination"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div id="page-search" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="searchBox" type="text" placeholder="Search games..." oninput="debouncedSuggestions()" style="padding:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.04);background:#0f2a3a;color:#dff3ff;width:360px" />
+          <button onclick="doSearch(1)" style="padding:10px;background:var(--accent);border:none;border-radius:4px;color:#07141d;font-weight:700;cursor:pointer">Search</button>
+          <div id="suggestions" style="position:relative"></div>
+        </div>
+        <!-- search time shown right under the search box as requested -->
+        <div id="search-time" class="small" style="margin-top:6px;color:var(--muted)"></div>
+      </div>
+
+      <div class="controls">
+        <select id="categorySelect" onchange="filterByCategory()">
+          <option value="">All categories</option>
+          <option value="popular">Popular</option>
+          <option value="free">Free</option>
+          <option value="metacritic">Top Metacritic</option>
+        </select>
+
+        <select id="sortSelect" onchange="applySortAndRender()">
+          <option value="metacritic">Sort: Metacritic</option>
+          <option value="recommendations">Sort: Recommendations</option>
+          <option value="alphabetical">Sort: Alphabetical</option>
+        </select>
+
+        <input id="minMeta" type="number" placeholder="min meta" style="width:90px" />
+        <input id="minRec" type="number" placeholder="min recs" style="width:110px" />
+      </div>
+    </div>
+
+    <div style="margin-top:12px;color:var(--muted)" id="result-stats">No search yet</div>
+    <div id="search-results" style="margin-top:12px">
+      <div id="results-list" class="results-list"></div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="page-about" class="page">
+    <div class="about" style="padding:12px;background:var(--panel);border-radius:6px">
+      <h3>About</h3>
+      <p class="small">This is a DSA project made by Uzair, Arham, Amina.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
